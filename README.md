@@ -32,6 +32,7 @@ This project converts CSV files to JSON and uploads them to NetSuite via REST AP
 
 ## Usage
 1. **Prepare your CSV file** and place it in the `data/` directory (or specify a custom path when prompted).
+   - the CSV file must contain the following fields: `address_id`, `customer_id` and `used` (where used > 0 means the address needs to be kept, otherwise the address will be deleted)
 2. **Run the app:**
    ```sh
    npm start
