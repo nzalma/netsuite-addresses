@@ -3,6 +3,7 @@ const path = require('path');
 const { generateOAuthHeader } = require('./sign_requests');
 const jsonDirectory = path.join(__dirname, '..', 'outputSB3');
 const testDir = path.join(__dirname, '..', 'outputSB3');
+const TIMEOUT = 1;
 require('dotenv').config();
 
 const jsonFiles = fs.readdirSync(jsonDirectory).filter(file => file.endsWith('.json'));
@@ -11,7 +12,7 @@ const sendRequests = async (jsonFiles) => {
     if (!fs.existsSync(path.join(testDir, 'error'))) fs.mkdirSync(path.join(testDir, 'error'));
     for (const file of jsonFiles) {
         const customerId = path.basename(file, '.json');
-        const url = process.env.REST_SERVICES + `/customer/${customerId}`;
+        const url = process.env.REST_SERVICES + `/customer/${customerId}?replace=addressBook`;
         const method = 'PATCH';
         const header = generateOAuthHeader(method, url);
         const request = {
@@ -44,7 +45,7 @@ const sendRequests = async (jsonFiles) => {
         }
         // const responseBody = await response.json();
         // console.log(`Response Body: ${JSON.stringify(responseBody, null, 2)}`);
-        await delay(1000); // Wait 1 second before next request
+        await delay(TIMEOUT); // Wait 1 second before next request
     }
 }
 sendRequests(jsonFiles);

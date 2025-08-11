@@ -1,18 +1,21 @@
 require('dotenv').config();
 const crypto = require('crypto');
 const { encode } = require('punycode');
-
 function generateOAuthHeader(method, url){
     const timestamp = Math.floor(Date.now() / 1000);    
     const nonce = crypto.randomBytes(16).toString('hex');
-
-    // const nonce = 'pn8v1KF0v27';
-    // const timestamp = '1754901607';
     const { origin, pathname, search } = new URL(url);
-    // console.log(`Origin: ${origin}, Pathname: ${pathname}, Search: ${search}`);
-    const debugMethod = method || 'GET';
-    const params = {
-        realm: process.env.REALM_ID,
+
+    // Parse query parameters
+    const queryParams = {};
+    if (search) {
+        for (const [key, value] of new URLSearchParams(search)) {
+            queryParams[key] = value;
+        }
+    }
+
+    // OAuth parameters (excluding realm)
+    const oauthParams = {
         oauth_consumer_key: process.env.CONSUMER_KEY,
         oauth_token: process.env.TOKEN_ID,
         oauth_signature_method: 'HMAC-SHA256',
@@ -20,31 +23,34 @@ function generateOAuthHeader(method, url){
         oauth_nonce: nonce,
         oauth_version: '1.0'
     };
-    
-    const oauthParams = Object.entries(params)
-        .filter(([key]) => key.startsWith('oauth_'))
-        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+
+    // Combine all parameters (query + oauth)
+    const allParams = { ...queryParams, ...oauthParams };
+
+    // Build parameter string: key=value, percent-encoded, sorted
+    const paramString = Object.entries(allParams)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
         .sort()
         .join('&');
-    // console.log(`oAuth Params: ${oauthParams}`);
 
+    // Build base string
     const baseString = [
-        debugMethod.toUpperCase(),
+        method.toUpperCase(),
         encodeURIComponent(origin + pathname),
-        encodeURIComponent(oauthParams)
+        encodeURIComponent(paramString)
     ].join('&');
-    // console.log(`Base String: ${baseString}`);
 
     const signingKey = `${encodeURIComponent(process.env.CONSUMER_SECRET)}&${encodeURIComponent(process.env.TOKEN_SECRET)}`;
     const signature = crypto.createHmac('sha256', signingKey).update(baseString).digest('base64');
-    params.oauth_signature = signature;
-    
+    oauthParams.oauth_signature = signature;
+
+    // Build header (realm first, then sorted keys)
     const headerParams = [
-        `realm="${encodeURIComponent(params.realm)}"`,
-        ... Object.entries(params)
-            .filter(([key]) => key !== 'realm')
-            .map(([key, value]) => `${encodeURIComponent(key)}="${encodeURIComponent(value)}"`)
+        `realm="${encodeURIComponent(process.env.REALM_ID)}"`,
+        ...Object.entries(oauthParams)
+            .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
     ].join(', ');
+
     return `OAuth ${headerParams}`;
 }
 
