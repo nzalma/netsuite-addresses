@@ -1,69 +1,29 @@
-// const fs = require('fs');
-// const path = require('path');
-// const { parse } = require('csv-parse');
-// const csvPath = path.join(__dirname, '/data/data.csv');
-
-// const parser = parse({
-//     columns: true,
-//     skip_empty_lines: true,
-//     delimiter: ',',
-//     trim: true,
-//     bom: true
-// });
-
-// const rows = [];
-// const customers = {
-// };
-
-// fs.createReadStream(csvPath)
-//     .pipe(parser)
-//     .on('error', (error) => {
-//         console.error('Error parsing CSV:', error);
-//     })
-//     .on('data', (row) => {
-//         console.log('Parsed row:', row);
-//         for (const key in row) {
-//             if (row.hasOwnProperty(key)) {
-//                 console.log(`Key: ${key}, Value: ${row[key]}`);
-//             }
-//         }
-//         if (row.used !== '0') {
-//             if (customers.hasOwnProperty(row['customer'])) {
-//                 customers[row['customer']]['addressBook']['items'].push({
-//                     'internalId': row['address_id']
-//                 });
-//             } else {
-//                 customers[row['customer']] = {
-//                     'addressBook': {
-//                         'items': [
-//                             {
-//                                 'internalId': row['address_id']
-//                             }
-//                         ]
-//                     }
-//                 };
-//             }
-//         }
-//         rows.push(row);
-//     })
-//     .on('end', () => {
-//         console.log('CSV parsing completed.');
-//         // console.log(customers);
-//         for (const key in customers) {
-//             fs.writeFileSync(path.join(__dirname, 'output', `${key}.json`), JSON.stringify(customers[key], null, 2));
-//             // console.log(key);1
-//             // console.log(JSON.stringify(customers[key]));
-//         }
-//         console.log(`Total customers: ${Object.keys(customers).length}`);
-//     });
-
 const { outputJSON } = require('./scripts/output_json');
-const { generateOAuthHeader } = require('./scripts/sign_requests');
+const { sendRequests } = require('./scripts/send_requests');
+const { askQuestion } = require('./scripts/ask');
+const path = require('path');
 
-const inputCSV = 'data/dataSB3.csv';
-const outputDir = `/outputSB3`;
+require('dotenv').config();
+(async () => {
+const defaultBatchSize = 100;
+const defaultTimeout = 0; 
+const defaultInputCSV = 'data/data.csv';
+const defaultOutputDir = 'output';
+if ((await askQuestion(`Currently working on realm ${process.env.REALM_ID}. Do you want to continue? (y/n): `)).toLowerCase() !== 'y') {
+    console.log('Operation cancelled.');
+    process.exit(0);
+}
+const inputCSV = await askQuestion(`Enter the path to the input CSV file (default path - ${defaultInputCSV}): `) || defaultInputCSV;
+const outputDir = path.join(__dirname, 'output', (await askQuestion(`Enter the output directory (default path - ${defaultOutputDir}): `) || defaultOutputDir));
+const batchSize = parseInt(await askQuestion(`Enter the batch size of records to process (default - ${defaultBatchSize}): `)) || defaultBatchSize;
+const timeout = parseInt(await askQuestion(`Enter the timeout in milliseconds between requests (default - ${defaultTimeout}): `)) || defaultTimeout;
 
-outputJSON(inputCSV, outputDir);
-
-
-
+await outputJSON(inputCSV, outputDir);
+if ((await askQuestion(`Do you want to send requests now? (y/n): `)).toLowerCase() !== 'y') {
+    console.log('Requests not sent.');
+    process.exit(0);
+}
+console.time('Total operation time');
+await sendRequests(outputDir, batchSize, timeout);
+console.timeEnd('Total operation time');
+})();

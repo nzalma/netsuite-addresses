@@ -13,54 +13,59 @@ const parser = parse({
 });
 
 
-function outputJSON(csvPath, outputDir) {
+async function outputJSON(csvPath, outputDir) {
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
     const rows = [];
     const customers = {
     };
-    fs.createReadStream(csvPath)
-        .pipe(parser)
-        .on('error', (error) => {
-            console.error('Error parsing CSV:', error);
-        })
-        .on('data', (row) => {
-            console.log('Parsed row:', row);
-            for (const key in row) {
-                if (row.hasOwnProperty(key)) {
-                    console.log(`Key: ${key}, Value: ${row[key]}`);
+    return new Promise((resolve, reject) => {
+        fs.createReadStream(csvPath)
+            .pipe(parser)
+            .on('error', (error) => {
+                console.error('Error parsing CSV:', error);
+                reject(error);
+            })
+            .on('data', (row) => {
+                console.log('Parsed row:', row);
+                for (const key in row) {
+                    if (row.hasOwnProperty(key)) {
+                        console.log(`Key: ${key}, Value: ${row[key]}`);
+                    }
                 }
-            }
-            if (row.used !== '0') {
-                if (customers.hasOwnProperty(row['customer'])) {
-                    customers[row['customer']]['addressBook']['items'].push({
-                        'internalId': row['address_id']
-                    });
-                } else {
-                    customers[row['customer']] = {
-                        'addressBook': {
-                            'items': [
-                                {
-                                    'internalId': parseInt(row['address_id'])
-                                }
-                            ]
-                        }
-                    };
+                if (row.used !== '0') {
+                    if (customers.hasOwnProperty(row['customer'])) {
+                        customers[row['customer']]['addressBook']['items'].push({
+                            'internalId': row['address_id']
+                        });
+                    } else {
+                        customers[row['customer']] = {
+                            'addressBook': {
+                                'items': [
+                                    {
+                                        'internalId': parseInt(row['address_id'])
+                                    }
+                                ]
+                            }
+                        };
+                    }
                 }
-            }
-            rows.push(row);
-        })
-        .on('end', () => {
-            console.log('CSV parsing completed.');
-            // console.log(customers);
-            for (const key in customers) {
-                fs.writeFileSync(path.join('outputSB3', `${key}.json`), JSON.stringify(customers[key], null, 2));
-                // console.log(key);1
-                // console.log(JSON.stringify(customers[key]));
-            }
-            console.log(`Total customers: ${Object.keys(customers).length}`);
-        });
-    }
+                rows.push(row);
+            })
+            .on('end', () => {
+                console.log('CSV parsing completed.');
+                for (const key in customers) {
+                    fs.writeFileSync(path.join(outputDir, `${key}.json`), JSON.stringify(customers[key], null, 2));
+                }
+                console.log(`Output JSON files written to ${outputDir}`);
+                console.log(`Total customers: ${Object.keys(customers).length}`);
+                resolve();
+            });
+    });
+}
 
-    module.exports = {
-        outputJSON
-    };
+module.exports = {
+    outputJSON
+};
 
