@@ -6,9 +6,10 @@ const { generateOAuthHeader } = require('./sign_requests');
 require('dotenv').config();
 
 const sendRequests = async (jsonDirectory, batchSize, timeout) => {
-    const jsonFiles = fs.readdirSync(jsonDirectory).filter(file => file.endsWith('.json'));
+    const readFiles = fs.readdirSync(jsonDirectory).filter(file => file.endsWith('.json'));
     if (!fs.existsSync(path.join(jsonDirectory, 'success'))) fs.mkdirSync(path.join(jsonDirectory, 'success'));
     if (!fs.existsSync(path.join(jsonDirectory, 'error'))) fs.mkdirSync(path.join(jsonDirectory, 'error'));
+    const jsonFiles = readFiles.slice(0,batchSize);
     for (const file of jsonFiles) {
         const customerId = path.basename(file, '.json');
         const url = process.env.REST_SERVICES + `/customer/${customerId}?replace=addressBook`;
